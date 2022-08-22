@@ -58,6 +58,12 @@ func (p *Provider) GetFabricInterfaces(ctx context.Context, provider string) (*h
 	fis := hardware.NewFabricInterfaceSet()
 
 	for _, comp := range components {
+		// FIXME DAOS-12747 Old dirty workaround to avoid unexplained SEGFAULT
+		// if comp.name == "ib" {
+		// 	p.log.Noticef("DAOS-10749: SPY 004 Skipping UCX ib component")
+		// 	continue
+		// }
+
 		if !supportedComps.Has(comp.name) {
 			continue
 		}
