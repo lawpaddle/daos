@@ -12,6 +12,7 @@ import time
 import signal
 import os
 import json
+import contextlib
 
 from avocado.utils import process
 from ClusterShell.NodeSet import NodeSet
@@ -166,6 +167,30 @@ class ExecutableCommand(CommandWithParameters):
 
         """
         return command_as_user(self.with_bind, self.run_user, self.env)
+
+    @contextlib.contextmanager
+    def temp_exit_status_exception(self, tmp_value):
+        """Set exit_status_exception temporarily.
+
+        Args:
+            tmp_value (bool): the temporary value to set
+        """
+        original_value = self.exit_status_exception
+        self.exit_status_exception = tmp_value
+        yield
+        self.exit_status_exception = original_value
+
+    @contextlib.contextmanager
+    def temp_run_user(self, tmp_value):
+        """Set run_user temporarily.
+
+        Args:
+            tmp_value (bool): the temporary value to set
+        """
+        original_value = self.run_user
+        self.run_user = tmp_value
+        yield
+        self.run_user = original_value
 
     def run(self, raise_exception=None):
         """Run the command.
