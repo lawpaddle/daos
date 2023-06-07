@@ -1,5 +1,5 @@
 /**
- * (C) Copyright 2018-2022 Intel Corporation.
+ * (C) Copyright 2018-2023 Intel Corporation.
  *
  * SPDX-License-Identifier: BSD-2-Clause-Patent
  */
@@ -512,7 +512,7 @@ out:
 
 int
 rdb_vos_update(daos_handle_t cont, daos_epoch_t epoch, rdb_oid_t oid, bool crit,
-	       int n, d_iov_t akeys[], d_iov_t values[])
+	       int n, d_iov_t akeys[], d_iov_t values[], rdb_vos_tx_t vtx)
 {
 	daos_unit_oid_t	uoid;
 	daos_iod_t	iods[n];
@@ -523,20 +523,19 @@ rdb_vos_update(daos_handle_t cont, daos_epoch_t epoch, rdb_oid_t oid, bool crit,
 	rdb_oid_to_uoid(oid, &uoid);
 	rdb_vos_set_iods(RDB_VOS_UPDATE, n, akeys, values, iods);
 	rdb_vos_set_sgls(RDB_VOS_UPDATE, n, values, sgls);
-	return vos_obj_update(cont, uoid, epoch, RDB_PM_VER, vos_flags,
-			      &rdb_dkey, n, iods, NULL, sgls);
+	return vos_obj_update_ex(cont, uoid, epoch, RDB_PM_VER, vos_flags, &rdb_dkey, n, iods,
+				 NULL /* iods_csums */, sgls, vtx);
 }
 
 int
-rdb_vos_punch(daos_handle_t cont, daos_epoch_t epoch, rdb_oid_t oid, int n,
-	      d_iov_t akeys[])
+rdb_vos_punch(daos_handle_t cont, daos_epoch_t epoch, rdb_oid_t oid, int n, d_iov_t akeys[],
+	      rdb_vos_tx_t vtx)
 {
 	daos_unit_oid_t	uoid;
 
 	rdb_oid_to_uoid(oid, &uoid);
-	return vos_obj_punch(cont, uoid, epoch, RDB_PM_VER, 0,
-			     n == 0 ? NULL : &rdb_dkey, n,
-			     n == 0 ? NULL : akeys, NULL);
+	return vos_obj_punch(cont, uoid, epoch, RDB_PM_VER, 0, n == 0 ? NULL : &rdb_dkey, n,
+			     n == 0 ? NULL : akeys, vtx);
 }
 
 int
