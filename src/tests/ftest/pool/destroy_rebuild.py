@@ -3,8 +3,6 @@
 
   SPDX-License-Identifier: BSD-2-Clause-Patent
 '''
-import random
-
 from apricot import TestWithServers
 from general_utils import list_to_str
 
@@ -73,8 +71,8 @@ class DestroyRebuild(TestWithServers):
             "Engine ranks:  pool leader=%s, access points=%s, other=%s",
             leader_rank, ap_ranks, non_ap_ranks)
         ranks = [leader_rank]
-        ranks.append(random.choice(ap_ranks))  # nosec
-        ranks.append(random.choice(non_ap_ranks))  # nosec
+        ranks.append(self.random.choice(ap_ranks))
+        ranks.append(self.random.choice(non_ap_ranks))
         self.log.info("ranks to rebuild: %s", ranks)
 
         self.server_managers[0].stop_ranks(ranks, self.d_log, force=True)

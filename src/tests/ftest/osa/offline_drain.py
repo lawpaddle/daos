@@ -3,8 +3,6 @@
 
   SPDX-License-Identifier: BSD-2-Clause-Patent
 """
-import random
-
 from osa_utils import OSAUtils
 from test_utils_pool import add_pool
 from nvme_utils import ServerFillUp
@@ -49,7 +47,7 @@ class OSAOfflineDrain(OSAUtils, ServerFillUp):
             oclass = self.ior_cmd.dfs_oclass.value
 
         # Exclude target : random two targets  (target idx : 0-7)
-        exc = random.randint(0, 6)  # nosec
+        exc = self.random.randint(0, 6)
         target_list.append(exc)
         target_list.append(exc + 1)
         t_string = "{},{}".format(target_list[0], target_list[1])

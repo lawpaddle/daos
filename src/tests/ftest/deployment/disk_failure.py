@@ -3,7 +3,6 @@
 
   SPDX-License-Identifier: BSD-2-Clause-Patent
 """
-import random
 import threading
 import time
 
@@ -66,7 +65,7 @@ class DiskFailureTest(OSAUtils):
                 time.sleep(5)
 
             # Evict a random target from the system
-            evict_device = random.choice(device_info)  # nosec
+            evict_device = self.random.choice(device_info)
             self.log.info("Evicting random target: %s", evict_device["uuid"])
             original_hostlist = self.dmg_command.hostlist
             try:

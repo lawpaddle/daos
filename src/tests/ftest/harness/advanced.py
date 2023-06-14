@@ -4,7 +4,6 @@
   SPDX-License-Identifier: BSD-2-Clause-Patent
 """
 import os
-from random import choice
 
 from ClusterShell.NodeSet import NodeSet
 from apricot import TestWithServers
@@ -100,7 +99,7 @@ class HarnessAdvancedTest(TestWithServers):
         :avocado: tags=harness,launch_failures,failure_expected
         :avocado: tags=HarnessAdvancedTest,test_launch_failures
         """
-        host = NodeSet(choice(self.server_managers[0].hosts))   # nosec
+        host = NodeSet(self.random.choice(self.server_managers[0].hosts))
         self.log.info("Creating launch.py failure trigger files on %s", host)
         failure_trigger = "00_trigger-launch-failure_00"
         failure_trigger_dir = os.path.join(self.base_test_dir, failure_trigger)

@@ -4,7 +4,6 @@
   SPDX-License-Identifier: BSD-2-Clause-Patent
 """
 import time
-import random
 import threading
 import queue
 
@@ -61,7 +60,7 @@ class OSAOnlineReintegration(OSAUtils):
         exclude_servers = (len(self.hostlist_servers) * 2) - 1
 
         # Exclude one rank : other than rank 0.
-        rank = random.randint(1, exclude_servers)  # nosec
+        rank = self.random.randint(1, exclude_servers)
 
         # Start the daos_racer thread
         if racer is True:

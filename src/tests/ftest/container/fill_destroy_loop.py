@@ -3,8 +3,6 @@
 
   SPDX-License-Identifier: BSD-2-Clause-Patent
 """
-import random
-
 from avocado.core.exceptions import TestFail
 
 from apricot import TestWithServers
@@ -39,7 +37,7 @@ class BoundaryPoolContainerSpace(TestWithServers):
         base_data_size = container.data_size.value
         data_written = 0
         while True:
-            new_data_size = random.randint(base_data_size * 0.5, base_data_size * 1.5)  # nosec
+            new_data_size = self.random.randint(base_data_size * 0.5, base_data_size * 1.5)
             container.data_size.update(new_data_size, "data_size")
 
             try:

@@ -4,7 +4,6 @@
   SPDX-License-Identifier: BSD-2-Clause-Patent
 """
 
-from random import randint
 from apricot import TestWithServers
 from exception_utils import CommandFailure
 from general_utils import DaosTestError
@@ -68,7 +67,7 @@ class PoolServicesFaultInjection(TestWithServers):
         Due to the nature of how wait_for_rebuild_to_start/end() is coded
         we can only get the last dmg command output.
         """
-        server_to_exclude = randint(0, len(self.hostlist_servers) - 1)  # nosec
+        server_to_exclude = self.random.randint(0, len(self.hostlist_servers) - 1)
         self.pool.exclude([server_to_exclude])
         self.look_missed_request(self.pool.dmg.result.stderr)
 

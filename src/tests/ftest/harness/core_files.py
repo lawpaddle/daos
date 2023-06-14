@@ -4,7 +4,6 @@
   SPDX-License-Identifier: BSD-2-Clause-Patent
 """
 import os
-from random import choice
 from re import findall
 
 from ClusterShell.NodeSet import NodeSet
@@ -56,7 +55,7 @@ class HarnessCoreFilesTest(TestWithServers):
             self.fail("Error writing {}: {}".format(local_core_file, str(error)))
 
         # Choose a server find the pid of its daos_engine process
-        host = NodeSet(choice(self.server_managers[0].hosts))   # nosec
+        host = NodeSet(self.random.choice(self.server_managers[0].hosts))
         ranks = self.server_managers[0].get_host_ranks(host)
         self.log.info("Obtaining pid of the daos_engine process on %s (rank %s)", host, ranks)
         pid = None

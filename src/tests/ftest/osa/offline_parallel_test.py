@@ -4,7 +4,6 @@
   SPDX-License-Identifier: BSD-2-Clause-Patent
 """
 import time
-import random
 import threading
 import copy
 import queue
@@ -82,7 +81,7 @@ class OSAOfflineParallelTest(OSAUtils):
             oclass = self.ior_cmd.dfs_oclass.value
 
         # Exclude target : random two targets (target idx : 0-7)
-        exc = random.randint(0, 6)  # nosec
+        exc = self.random.randint(0, 6)
         target_list.append(exc)
         target_list.append(exc + 1)
         t_string = "{},{}".format(target_list[0], target_list[1])

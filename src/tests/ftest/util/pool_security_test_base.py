@@ -4,7 +4,6 @@
   SPDX-License-Identifier: BSD-2-Clause-Patent
 """
 import os
-import random
 import grp
 import re
 
@@ -369,7 +368,7 @@ class PoolSecurityTestBase(TestWithServers):
                                      groupname)
             group_list.append(new_group)
         permission_list = group_list + user_list + current_user_acl
-        random.shuffle(permission_list)
+        self.random.shuffle(permission_list)
         with open(acl_file, "w") as test_file:
             test_file.write("\n".join(permission_list))
         return permission_list

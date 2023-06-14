@@ -5,7 +5,6 @@
 '''
 import os
 import traceback
-import random
 import base64
 import time
 
@@ -29,8 +28,7 @@ class UpgradeDowngradeBase(IorTestBase):
         self.upgrade_repo = ""
         self.downgrade_repo = ""
 
-    @staticmethod
-    def create_data_set(num_attributes):
+    def create_data_set(self, num_attributes):
         """Create the large attribute dictionary.
 
         Args:
@@ -40,7 +38,7 @@ class UpgradeDowngradeBase(IorTestBase):
         """
         data_set = {}
         for index in range(num_attributes):
-            size = random.randint(1, 10)  # nosec
+            size = self.random.randint(1, 10)
             key = str(index).encode("utf-8")
             data_set[key] = get_random_bytes(size)
         return data_set

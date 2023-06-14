@@ -6,7 +6,6 @@
 import os
 import sys
 import string
-import random
 from ClusterShell.NodeSet import NodeSet
 
 import general_utils
@@ -37,7 +36,7 @@ class DfuseFind(DfuseTestBase):
         :avocado: tags=all,full_regression
         :avocado: tags=hw,medium
         :avocado: tags=daosio,dfuse
-        :avocado: tags=dfuse_find,test_dfuse_find
+        :avocado: tags=DfuseFind,test_dfuse_find
         """
         self._test_findcmd()
 
@@ -54,7 +53,7 @@ class DfuseFind(DfuseTestBase):
 
         :avocado: tags=all,manual
         :avocado: tags=hw,medium
-        :avocado: tags=dfuse_find,test_dfuse_find_perf
+        :avocado: tags=DfuseFind,test_dfuse_find_perf
         """
         # Number of repetitions each test will run.
         samples = self.params.get("samples", '/run/perf/*')
@@ -180,12 +179,12 @@ class DfuseFind(DfuseTestBase):
         for sample_num in range(1, samples + 1):
             self.log.info("Running sample number %d of %d", sample_num, samples)
 
-            prefix = random.randrange(containers - 1)  # nosec
-            suffix = random.randrange(needles - 1)  # nosec
+            prefix = self.random.randrange(containers - 1)
+            suffix = self.random.randrange(needles - 1)
             file_name = "t{:05d}_*_{:05d}.needle".format(prefix, suffix)
             _search_needles(file_name, "unique_file", 1)
 
-            number = random.randrange(needles - 1)  # nosec
+            number = self.random.randrange(needles - 1)
             file_name = "*_{:05d}.needle".format(number)
             _search_needles(file_name, "same_suffix", containers)
 
@@ -256,16 +255,14 @@ class DfuseFind(DfuseTestBase):
 
         return challenger_dirs
 
-    @classmethod
-    def _generate_temp_path_name(cls, root, prefix):
+    def _generate_temp_path_name(self, root, prefix):
         """
         Creates path that can be used to create temporary files or directories.
         The return value is concatenation of root and a random string prefixed
         with the prefix value.
         """
         letters = string.ascii_lowercase + string.digits
-        random_name = "".join(random.choice(letters) for _ in range(8))  # nosec
-
+        random_name = "".join(self.random.choice(letters) for _ in range(8))
         return os.path.join(root, "{}{}".format(prefix, random_name))
 
 

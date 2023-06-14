@@ -4,7 +4,6 @@
   SPDX-License-Identifier: BSD-2-Clause-Patent
 """
 import time
-import random
 
 from pydaos.raw import DaosApiError
 
@@ -46,7 +45,7 @@ class PoolManagementRace(TestWithServers):
                 self.log.info("--(%d.3.%s.%d)Pool %s recreated.\n",
                               thread_num, pool_id, test_num, pool_id)
                 # pool stays with a random time before destroy
-                pool_stay_time = random.randint(1, 3)  # nosec
+                pool_stay_time = self.random.randint(1, 3)
                 time.sleep(pool_stay_time)
             else:
                 completed = False
@@ -91,8 +90,8 @@ class PoolManagementRace(TestWithServers):
             5. Check for failure from thread_manager
         :avocado: tags=all,full_regression
         :avocado: tags=hw,medium
-        :avocado: tags=pool,boundary_test
-        :avocado: tags=pool_mgmt_race,test_pool_management_race
+        :avocado: tags=pool,boundary
+        :avocado: tags=PoolManagementRace,test_pool_management_race
         Args:
         """
 
@@ -104,7 +103,7 @@ class PoolManagementRace(TestWithServers):
             self.log.info("==(1.%d) pool created, %s.", pool_number, self.pool[-1].identifier)
 
         # Randomly select a pool for delete, recreate and query
-        pool_number = random.randint(0, len(self.pool) - 1)  # nosec
+        pool_number = self.random.randint(0, len(self.pool) - 1)
 
         # Setup the thread manager for del_and_recreate_pool
         thread_manager = ThreadManager(self.del_recreate_query_and_list_pools, self.timeout - 30)

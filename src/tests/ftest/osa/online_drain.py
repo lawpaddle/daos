@@ -4,7 +4,6 @@
   SPDX-License-Identifier: BSD-2-Clause-Patent
 """
 import time
-import random
 import threading
 
 from write_host_file import write_host_file
@@ -50,13 +49,13 @@ class OSAOnlineDrain(OSAUtils):
         drain_servers = (len(self.hostlist_servers) * 2) - 1
 
         # Exclude target : random two targets  (target idx : 0-7)
-        exc = random.randint(0, 6)  # nosec
+        exc = self.random.randint(0, 6)
         target_list.append(exc)
         target_list.append(exc + 1)
         t_string = "{},{}".format(target_list[0], target_list[1])
 
         # Drain one of the ranks (or server)
-        rank = random.randint(1, drain_servers)  # nosec
+        rank = self.random.randint(1, drain_servers)
 
         for val in range(0, num_pool):
             pool[val] = add_pool(self, connect=False)
