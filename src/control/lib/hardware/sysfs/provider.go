@@ -53,7 +53,7 @@ func isNetvscDevice(path string, subsystem string) bool {
 
 	scanner := bufio.NewScanner(file)
 	for scanner.Scan() {
-		kv = strings.Split(scanner.Text(), "=")
+		kv := strings.Split(scanner.Text(), "=")
 		if len(kv) != 2 {
 			continue
 		}
