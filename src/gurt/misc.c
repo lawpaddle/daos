@@ -891,28 +891,31 @@ d_getenv_char(const char *env, char *char_val)
  * \param[in,out]	int_val	returned value of the ENV. Will not change the original value if ENV
  *				is not set or set as a
  *				non-integer value.
+ * \return               0 on success, errno code on failure.
  */
-void
+int
 d_getenv_int(const char *env, unsigned *int_val)
 {
 	char		*env_val;
 	unsigned	 value;
 
 	if (env == NULL || int_val == NULL)
-		return;
+		return -DER_INVAL;
 
 	env_val = getenv(env);
 	if (!env_val)
-		return;
+		return -DER_NONEXIST;
 
 	if (!dis_integer_str(env_val)) {
 		D_ERROR("ENV %s is not integer.\n", env_val);
-		return;
+		return -DER_INVAL;
 	}
 
 	value = atoi(env_val);
 	D_DEBUG(DB_TRACE, "get ENV %s as %d.\n", env, value);
 	*int_val = value;
+
+	return DER_SUCCESS;
 }
 
 int
