@@ -19,3 +19,4 @@ pool:
 container:
   type: POSIX
   control_method: daos
+  destroy_retries: 2

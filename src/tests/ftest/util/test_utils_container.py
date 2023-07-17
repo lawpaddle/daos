@@ -7,7 +7,7 @@
 
 import ctypes
 from logging import getLogger
-from time import time
+from time import time, sleep
 
 from avocado import fail_on
 from pydaos.raw import (DaosApiError, DaosContainer, DaosInputParams,
@@ -288,6 +288,9 @@ class TestContainer(TestDaosApiBase):  # pylint: disable=too-many-public-methods
         # Setting to False will use the UUID where possible.
         self.use_label = True
 
+        # Number of times to retry container destroy. Workaround for DAOS-13812.
+        self.destroy_retries = BasicParameter(0)
+
     def __str__(self):
         """Return a string representation of this TestContainer object.
 
@@ -528,35 +531,51 @@ class TestContainer(TestDaosApiBase):  # pylint: disable=too-many-public-methods
                 container does not exist.
 
         """
+        if not self.container:
+            return False
+
         status = False
-        if self.container:
-            self.close()
-            if not self.silent.value:
-                self.log.info("Destroying container %s", str(self))
-            if self.container.attached:
-                kwargs = {"force": force}
+        self.close()
+        if not self.silent.value:
+            self.log.info("Destroying container %s", str(self))
+        if self.container.attached:
+            kwargs = {"force": force}
 
-                if self.control_method.value == self.USE_API:
-                    # Destroy the container with the API method
-                    self._call_method(self.container.destroy, kwargs)
-                    status = True
+            if self.control_method.value == self.USE_API:
+                # Destroy the container with the API method
+                self._call_method(self.container.destroy, kwargs)
+                status = True
 
-                else:
-                    # Disconnect the pool if connected
-                    self.pool.disconnect()
+            else:
+                # Disconnect the pool if connected
+                self.pool.disconnect()
 
-                    # Destroy the container with the daos command
-                    kwargs["pool"] = self.pool.identifier
-                    kwargs["sys_name"] = self.pool.name.value
-                    kwargs["cont"] = self.identifier
-                    self._log_method("daos.container_destroy", kwargs)
-                    self.daos.container_destroy(**kwargs)
-                    status = True
+                # Destroy the container with the daos command
+                kwargs["pool"] = self.pool.identifier
+                kwargs["sys_name"] = self.pool.name.value
+                kwargs["cont"] = self.identifier
+                self._log_method("daos.container_destroy", kwargs)
+                # Workaround for DAOS-13812
+                destroy_tries = self.destroy_retries.value + 1
+                while True:
+                    try:
+                        if destroy_tries >= 2:
+                            raise CommandFailure('fake container destroy failure')
+                        self.daos.container_destroy(**kwargs)
+                        break
+                    except CommandFailure:
+                        destroy_tries -= 1
+                        if destroy_tries <= 0:
+                            raise
+                        self.log.info("Retrying container destroy %s more times", destroy_tries)
+                        self.log.info("Waiting 5 seconds")
+                        sleep(5)
+                status = True
 
-            self.container = None
-            self.uuid = None
-            self.info = None
-            self.written_data = []
+        self.container = None
+        self.uuid = None
+        self.info = None
+        self.written_data = []
 
         return status
 
