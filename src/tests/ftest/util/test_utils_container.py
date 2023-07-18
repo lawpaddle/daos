@@ -559,8 +559,6 @@ class TestContainer(TestDaosApiBase):  # pylint: disable=too-many-public-methods
                 destroy_tries = self.destroy_retries.value + 1
                 while True:
                     try:
-                        if destroy_tries >= 2:
-                            raise CommandFailure('fake container destroy failure')
                         self.daos.container_destroy(**kwargs)
                         break
                     except CommandFailure:

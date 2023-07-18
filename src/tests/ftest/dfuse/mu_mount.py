@@ -120,8 +120,6 @@ class DfuseMUMount(DfuseTestBase):
         self.dfuse.run()
         self.dfuse.stop()
 
-        cont.destroy()
-
     def test_dfuse_mu_mount_uns(self):
         """JIRA ID: DAOS-10859.
 
