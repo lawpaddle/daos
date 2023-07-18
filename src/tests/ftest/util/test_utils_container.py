@@ -289,7 +289,7 @@ class TestContainer(TestDaosApiBase):  # pylint: disable=too-many-public-methods
         self.use_label = True
 
         # Number of times to retry container destroy. Workaround for DAOS-13812.
-        self.destroy_retries = BasicParameter(0)
+        self.destroy_retries = BasicParameter(0, 0)
 
     def __str__(self):
         """Return a string representation of this TestContainer object.
