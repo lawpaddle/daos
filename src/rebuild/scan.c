@@ -396,6 +396,7 @@ struct rebuild_scan_arg {
 	int				snapshot_cnt;
 	uint32_t			yield_freq;
 	int32_t				obj_yield_cnt;
+	struct ds_cont_child		*cont_child;
 };
 
 /**
@@ -690,7 +691,7 @@ rebuild_obj_scan_cb(daos_handle_t ch, vos_iter_entry_t *ent,
 	int				i;
 	int				rc = 0;
 
-	if (rpt->rt_abort) {
+	if (rpt->rt_abort || arg->cont_child->sc_stopping) {
 		D_DEBUG(DB_REBUILD, "rebuild is aborted\n");
 		return 1;
 	}
@@ -832,38 +833,49 @@ rebuild_container_scan_cb(daos_handle_t ih, vos_iter_entry_t *entry,
 	}
 
 	rc = vos_cont_open(iter_param->ip_hdl, entry->ie_couuid, &coh);
+	if (rc == -DER_NONEXIST) {
+		D_DEBUG(DB_REBUILD, DF_UUID" already destroyed\n", DP_UUID(arg->co_uuid));
+		return 0;
+	}
+
 	if (rc != 0) {
 		D_ERROR("Open container "DF_UUID" failed: "DF_RC"\n",
 			DP_UUID(entry->ie_couuid), DP_RC(rc));
 		return rc;
 	}
 
+	rc = ds_cont_child_lookup(rpt->rt_pool_uuid, entry->ie_couuid, &cont_child);
+	if (rc == -DER_NONEXIST || rc == -DER_SHUTDOWN) {
+		D_DEBUG(DB_REBUILD, DF_UUID" already destroyed or destroying\n",
+			DP_UUID(arg->co_uuid));
+		rc = 0;
+		D_GOTO(close, rc);
+	}
+
+	if (rc != 0) {
+		D_ERROR("Container "DF_UUID", ds_cont_child_lookup failed: "DF_RC"\n",
+			DP_UUID(entry->ie_couuid), DP_RC(rc));
+		D_GOTO(close, rc);
+	}
+	cont_child->sc_rebuilding = 1;
+
 	rc = ds_cont_fetch_snaps(rpt->rt_pool->sp_iv_ns, entry->ie_couuid, NULL,
 				 &snapshot_cnt);
 	if (rc) {
 		D_ERROR("Container "DF_UUID", ds_cont_fetch_snaps failed: "DF_RC"\n",
 			DP_UUID(entry->ie_couuid), DP_RC(rc));
-		vos_cont_close(coh);
-		return rc;
+		D_GOTO(close, rc);
 	}
 
 	rc = ds_cont_get_props(&arg->co_props, rpt->rt_pool->sp_uuid, entry->ie_couuid);
 	if (rc) {
 		D_ERROR("Container "DF_UUID", ds_cont_get_props failed: "DF_RC"\n",
 			DP_UUID(entry->ie_couuid), DP_RC(rc));
-		vos_cont_close(coh);
-		return rc;
+		D_GOTO(close, rc);
 	}
 
 	if (rpt->rt_rebuild_op == RB_OP_RECLAIM ||
 	    rpt->rt_rebuild_op == RB_OP_FAIL_RECLAIM) {
-		rc = ds_cont_child_lookup(rpt->rt_pool_uuid, entry->ie_couuid, &cont_child);
-		if (rc != 0) {
-			D_ERROR("Container "DF_UUID", ds_cont_child_lookup failed: "DF_RC"\n",
-				DP_UUID(entry->ie_couuid), DP_RC(rc));
-			vos_cont_close(coh);
-			return rc;
-		}
 		cont_child->sc_discarding = 1;
 		while (cont_child->sc_ec_agg_active) {
 			D_ASSERTF(rpt->rt_pool->sp_reintegrating >= 0, DF_UUID" reintegrating %d\n",
@@ -894,6 +906,7 @@ rebuild_container_scan_cb(daos_handle_t ih, vos_iter_entry_t *entry,
 	param.ip_flags = VOS_IT_FOR_MIGRATION;
 	uuid_copy(arg->co_uuid, entry->ie_couuid);
 	arg->snapshot_cnt = snapshot_cnt;
+	arg->cont_child = cont_child;
 
 	/* If there is no snapshots, then rebuild does not need to migrate
 	 * punched objects at all. Ideally, it should ignore any objects
@@ -913,6 +926,8 @@ close:
 
 	if (cont_child != NULL) {
 		cont_child->sc_discarding = 0;
+		cont_child->sc_rebuilding = 0;
+		ABT_cond_broadcast(cont_child->sc_rebuild_cond);
 		ds_cont_child_put(cont_child);
 	}
 
