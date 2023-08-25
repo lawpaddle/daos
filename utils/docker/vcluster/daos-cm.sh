@@ -5,7 +5,7 @@ set -o pipefail
 VERSION=0.2
 CWD="$(realpath $(dirname $0))"
 
-DAOS_POOL_SIZE=10G
+DAOS_POOL_SIZE=22G
 
 ANSI_COLOR_BLACK=30
 ANSI_COLOR_RED=31
@@ -141,22 +141,44 @@ function start
 	fi
 
 	info "Waiting for daos-server services to be started"
-	timeout_counter=0
-	until [[ $timeout_counter -ge 5 ]] || run docker exec daos-server systemctl --quiet is-active daos_server ; do
-		info "daos-server not yet ready: waiting 1s"
+	timeout_counter=5
+	until [[ $timeout_counter -le 0 ]] || docker exec daos-server systemctl --quiet is-active daos_server > /dev/null 2>&1 ; do
+		info "daos-server not yet ready: timeout=$timeout_counter"
 		sleep 1
-		(( timeout_counter++ ))
+		(( timeout_counter-- ))
 	done
-	if [[ $timeout_counter -ge 5 ]] ; then
+	if [[ $timeout_counter -le 0 ]] ; then
 		fatal "DAOS server could not be started"
 	fi
+
+	timeout_counter=10
+	until [[ $timeout_counter -le 0 ]] || docker exec daos-server grep -q -e "format required" /tmp/daos_server.log > /dev/null 2>&1 ; do
+		info "Waiting DAOS file system for being ready to be formatted : timeout=$timeout_counter"
+		sleep 1
+		(( timeout_counter-- ))
+	done
+	if [[ $timeout_counter -le 0 ]] ; then
+		fatal "DAOS file system could not be formatted"
+	fi
+	info "DAOS file system ready to be formatted"
 
 	info "Formatting DAOS storage"
 	if ! run docker exec daos-admin dmg storage format --host-list=daos-server ; then
 		fatal "DAOS storage could not be formatted"
 	fi
 
-	info "Checking system"
+	timeout_counter=10
+	until [[ $timeout_counter -le 0 ]] || docker exec daos-server grep -q -e "DAOS I/O Engine .* started on rank" /tmp/daos_server.log > /dev/null 2>&1 ; do
+		info "Waiting DAOS file system to be formatted : timeout=$timeout_counter"
+		sleep 1
+		(( timeout_counter-- ))
+	done
+	if [[ $timeout_counter -le 0 ]] ; then
+		fatal "DAOS file system could not be formatted"
+	fi
+	info "DAOS file system formatted"
+
+	info "Checking system state"
 	if ! run docker exec daos-admin dmg system query --verbose ; then
 		fatal "DAOS system not healthy"
 	fi

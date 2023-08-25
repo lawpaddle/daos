@@ -2,14 +2,12 @@
 
 This section describes how to build and deploy Docker images allowing to simulate a small cluster
 using DAOS as backend storage.  This small cluster is composed of the following three nodes:
-
 - The `daos-server` node running a DAOS server daemon managing data storage devices such as SCM or
   NVMe disks.
 - The `daos-admin` node allowing to manage the DAOS server thanks to `dmg`command.
 - The `daos-client` node using the the DAOS server to store data.
 
 At this time only emulated hardware storage are supported by this Docker platform:
-
 - SCM (i.e. Storage Class Memory) are emulated with standard RAM memory.
 - NVMe disks are emulated with a file device.
 
@@ -84,18 +82,23 @@ $ docker build --tag daos-base:rocky8.6 \
 ```
 
 This Docker file accept the following arguments:
-
-- `RHEL_BASE_IMAGE`: Base docker image to use (default "rockylinux/rockylinux")
-- `RHEL_BASE_VERSION`: Version of the base docker image to use (default "8.6")
+- `RHEL_BASE_IMAGE_NAME`: Base docker image name to use (default "rockylinux/rockylinux")
+- `RHEL_BASE_IMAGE_TAG`: Tag identifier of the base docker image to use (default "8.6")
+- `DAOS_DOCKER_IMAGE_TAG`: Tag identifier of the base DAOS docker image to use (default "rocky8.6")
 - `BUST_CACHE`: Manage docker building cache (default "").  To invalidate the cache, a random value
   such as the date of the day shall be given.
-- `DAOS_AUTH`: Enable DAOS authentication when set to "yes" (default "yes")
 - `DAOS_REPOS`: Space separated list of repos needed to install DAOS (default
   "https://packages.daos.io/v2.2/EL8/packages/x86\_64/")
 - `DAOS_GPG_KEYS`: Space separated list of GPG keys associated with DAOS repos (default
   "https://packages.daos.io/RPM-GPG-KEY")
 - `DAOS_REPOS_NOAUTH`: Space separated list of repos to use without GPG authentication
   (default "")
+- `DAOS_VERSION`: Version of DAOS to use (default "2.4.0-2.el8")
+- `DAOS_AUTH`: Enable DAOS authentication when set to "yes" (default "yes")
+
+!!! warning
+    For working properly, the DAOS authentication have to be enabled in all the images (i.e. nodes
+    images and base image).
 
 For example, building a DAOS base image, with authentication disabled, could be done with the
 following command:
@@ -119,7 +122,13 @@ $ docker compose --file utils/docker/vcluster/docker-compose.yml build daos_base
 ```
 
 The same arguments are accepted but they have to be defined in the Docker Compose environment file
-`utils/docker/vcluster/.env`.
+`utils/docker/vcluster/.env`.  For example, on system with non standard network interface names such
+as "ino1" instead of "eth0", the following command could be used to update the Docker Compose
+environment file.
+
+```bash
+$ sed -i -e s/eth0/eno1/ utils/docker/vcluster/.env
+```
 
 ### DAOS Nodes Images
 
@@ -134,34 +143,24 @@ $ for image in daos-server daos-admin daos-client ; do \
   done
 ```
 
-The Docker file of the `daos-server` image accept the following arguments:
-
-- `DAOS_BASE_IMAGE`: Base docker image to use (default "daos-base")
-- `DAOS_BASE_VERSION`: Version of the base docker image to use (default "rocky8.6")
+The Dockerfile of the `daos-server`,`daos-client` and `daos-admin` images accept the following
+common arguments:
+- `DAOS_DOCKER_IMAGE_TAG`: Tag identifier of the base DAOS docker image to use (default "rocky8.6")
+- `DAOS_VERSION`: Version of DAOS to use (default "2.4.0-2.el8")
 - `DAOS_AUTH`: Enable DAOS authentication when set to "yes" (default "yes")
+
+The Docker file of the `daos-server` image accept the following extra arguments:
 - `DAOS_HUGEPAGES_NBR`: Number of huge pages to allocate for SPDK (default 4096)
 - `DAOS_SCM_SIZE`: Size in GB of the RAM emulating SCM devices (default 4)
 - `DAOS_BDEV_SIZE`: Size in GB of the file created to emulate NVMe devices (default 16)
 - `DAOS_IFACE_NAME`: Fabric network interface used by the DAOS engine (default "eth0")
+- `DAOS_MD_ON_SSD`: Enable DAOS MD-on-SSD feature when set to "yes" (default "no")
 
 !!! note
     The IP address of the network interface referenced by the `DAOS_IFACE_NAME` argument will be
     required when starting DAOS.
 
-The Dockerfile of the `daos-client` and `daos-admin` images accept the following arguments:
-
-- `DAOS_BASE_IMAGE`: Base docker image to use (default "daos-base")
-- `DAOS_BASE_VERSION`: Version of the base docker image to use (default "rocky8.6")
-- `DAOS_AUTH`: Enable DAOS authentication when set to "yes" (default "yes")
-- `DAOS_ADMIN_USER`: Name or uid of the daos administrattor user (default "root")
-- `DAOS_ADMIN_GROUP`: Name or gid of the daos administrattor group (default "root")
-
-!!! warning
-    For working properly, the DAOS authentication have to be enabled in all the images (i.e. nodes
-    images and base image).
-
-The Dockerfile of the `daos-client` image accept the following arguments:
-
+The Dockerfile of the `daos-client` image accept the following extra arguments:
 - `DAOS_AGENT_IFACE_CFG`: Enable manual configuration of the interface to use by the agent (default
   "yes")
 - `DAOS_AGENT_IFACE_NUMA_NODE`: Numa node of the interface to use by the agent (default "0").
@@ -234,7 +233,7 @@ From a local tree, a more straightforward way to start the containers could be d
 `docker compose`:
 
 ```bash
-$ docker compose --file utils/docker/vcluster/docker-compose.yml up --detach
+$ docker compose --file utils/docker/vcluster/docker-compose.yml up --detach daos_server daos_admin daos_client
 ```
 
 !!! note
@@ -249,7 +248,6 @@ As with the docker command, the system shall be formatted, pools created, etc..
 
 From a local tree, the bash script `utils/docker/vcluster/daos-cm.sh` could be used to start the
 containers and setup a simple DAOS system composed of the following elements:
-
 - 1 DAOS pool of 10GB (i.e. size of the pool is configurable)
 - 1 DAOS POSIX container mounted on /mnt/daos-posix-fs
 
