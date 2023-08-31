@@ -343,7 +343,7 @@ punch_dkey:
 	vos_ilog_fetch_finish(&info->ki_akey);
 
 	if (daos_handle_is_valid(toh))
-		key_tree_release(toh, 0);
+		key_tree_release(toh, (krec->kr_bmap & KREC_BF_EVT) != 0);
 
 	D_FREE(info);
 
@@ -417,6 +417,13 @@ vos_obj_punch(daos_handle_t coh, daos_unit_oid_t oid, daos_epoch_t epoch,
 
 	if (oid.id_shard % 3 == 1 && DAOS_FAIL_CHECK(DAOS_DTX_FAIL_IO))
 		return -DER_IO;
+
+	if (vos_obj_flat_kv_supported(obj) && dkey != NULL && akeys != NULL) {
+		D_ERROR("Akey punch is not supported with flat object types: " DF_UOID "\n",
+			DP_UOID(oid));
+
+		return -DER_INVAL;
+	}
 
 	if (dtx_is_valid_handle(dth)) {
 		epr.epr_hi = dth->dth_epoch;
@@ -562,8 +569,10 @@ vos_obj_key2anchor(daos_handle_t coh, daos_unit_oid_t oid, daos_key_t *dkey, dao
 		   daos_anchor_t *anchor)
 {
 	struct vos_container  *cont;
+	struct vos_krec_df    *krec = NULL;
 	struct daos_lru_cache *occ;
 	int                    rc;
+	int                    flags = 0;
 	struct vos_object     *obj;
 	daos_epoch_range_t     epr = {0, DAOS_EPOCH_MAX};
 	daos_handle_t          toh;
@@ -598,9 +607,13 @@ vos_obj_key2anchor(daos_handle_t coh, daos_unit_oid_t oid, daos_key_t *dkey, dao
 		goto out;
 	}
 
+	if (daos_is_array(obj->obj_id.id_pub))
+		flags |=
+		    SUBTR_EVT; /** If the dkey is flat, this will enable the operation to succeed */
+
 	/** Otherwise, we need to find the dkey to convert the akey to the anchor */
-	rc = key_tree_prepare(obj, obj->obj_toh, VOS_BTR_DKEY, dkey, 0, DAOS_INTENT_DEFAULT, NULL,
-			      &toh, NULL);
+	rc = key_tree_prepare(obj, obj->obj_toh, VOS_BTR_DKEY, dkey, flags, DAOS_INTENT_DEFAULT,
+			      &krec, &toh, NULL);
 	if (rc) {
 		if (rc == -DER_NONEXIST) {
 			daos_anchor_set_eof(anchor);
@@ -611,12 +624,19 @@ vos_obj_key2anchor(daos_handle_t coh, daos_unit_oid_t oid, daos_key_t *dkey, dao
 		D_GOTO(out, rc);
 	}
 
-	rc = dbtree_key2anchor(toh, akey, anchor);
+	if (krec->kr_bmap & KREC_BF_FLAT) {
+		/** There is no akey tree to query.  In accordance with the design to fake it for
+		 *  iterators, let's create a fake anchor
+		 */
+		vos_fake_anchor_create(anchor);
+	} else {
+		rc = dbtree_key2anchor(toh, akey, anchor);
+	}
 	D_DEBUG(DB_TRACE,
 		"oid=" DF_UOID " dkey=" DF_KEY " akey=" DF_KEY " to anchor: rc=" DF_RC "\n",
 		DP_UOID(oid), DP_KEY(dkey), DP_KEY(akey), DP_RC(rc));
 
-	key_tree_release(toh, false);
+	key_tree_release(toh, (krec->kr_bmap & KREC_BF_EVT) != 0);
 out:
 	vos_obj_release(occ, obj, false);
 

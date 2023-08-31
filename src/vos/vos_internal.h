@@ -1195,8 +1195,9 @@ tree_rec_bundle2iov(struct vos_rec_bundle *rbund, d_iov_t *iov)
 }
 
 enum {
-	SUBTR_CREATE	= (1 << 0),	/**< may create the subtree */
-	SUBTR_EVT	= (1 << 1),	/**< subtree is evtree */
+	SUBTR_CREATE = (1 << 0), /**< may create the subtree */
+	SUBTR_EVT    = (1 << 1), /**< subtree is evtree */
+	SUBTR_FLAT   = (1 << 2), /**< use flat kv on create */
 };
 
 /* vos_common.c */
@@ -1725,5 +1726,27 @@ vos_flush_wal_header(struct vos_pool *vp)
 int
 vos_oi_upgrade_layout_ver(struct vos_container *cont, daos_unit_oid_t oid,
 			  uint32_t layout_ver);
+
+static inline bool
+vos_obj_flat_kv_supported(struct vos_object *obj)
+{
+	struct vos_pool *pool = vos_obj2pool(obj);
+
+	if ((pool->vp_feats & VOS_POOL_FEAT_FLAT_DKEY) == 0)
+		return false;
+
+	if (daos_is_array(obj->obj_id.id_pub) || daos_is_kv(obj->obj_id.id_pub))
+		return true;
+
+	return false;
+}
+
+/** For flat trees, we sometimes need a fake akey anchor */
+static inline void
+vos_fake_anchor_create(daos_anchor_t *anchor)
+{
+	memset(&anchor->da_buf[0], 0, sizeof(anchor->da_buf));
+	anchor->da_type = DAOS_ANCHOR_TYPE_HKEY;
+}
 
 #endif /* __VOS_INTERNAL_H__ */

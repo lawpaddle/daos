@@ -34,7 +34,8 @@ struct vos_btr_attr {
 	btr_ops_t	*ta_ops;
 };
 
-static struct vos_btr_attr *obj_tree_find_attr(unsigned tree_class);
+static struct vos_btr_attr *
+obj_tree_find_attr(unsigned tree_class, int flags);
 
 static struct vos_svt_key *
 iov2svt_key(d_iov_t *key_iov)
@@ -806,7 +807,8 @@ tree_open_create(struct vos_object *obj, enum vos_tree_class tclass, int flags,
 	int			 unexpected_flag;
 	int			 rc = 0;
 
-	if (flags & SUBTR_EVT) {
+	/** Only honor the SUBTR_EVT flag if it's an akey or the flat kv flag is set on the dkey */
+	if (flags & SUBTR_EVT && (tclass == VOS_BTR_AKEY || (krec->kr_bmap & KREC_BF_FLAT))) {
 		expected_flag = KREC_BF_EVT;
 		unexpected_flag = KREC_BF_BTR;
 	} else {
@@ -881,7 +883,7 @@ tree_open_create(struct vos_object *obj, enum vos_tree_class tclass, int flags,
 				tree_feats |= VOS_KEY_CMP_LEXICAL_SET;
 		}
 
-		ta = obj_tree_find_attr(tclass);
+		ta = obj_tree_find_attr(tclass, flags);
 
 		D_DEBUG(DB_TRACE, "Create dbtree %s feats 0x"DF_X64"\n",
 			ta->ta_name, tree_feats);
@@ -900,6 +902,8 @@ tree_open_create(struct vos_object *obj, enum vos_tree_class tclass, int flags,
 	 * levels, only the tree_feats version is used.
 	 */
 	krec->kr_bmap |= expected_flag;
+	if (flags & SUBTR_FLAT)
+		krec->kr_bmap |= KREC_BF_FLAT;
 out:
 	return rc;
 }
@@ -1214,7 +1218,7 @@ obj_tree_register(void)
 
 /** find the attributes of the subtree of @tree_class */
 static struct vos_btr_attr *
-obj_tree_find_attr(unsigned tree_class)
+obj_tree_find_attr(unsigned tree_class, int flags)
 {
 	int	i;
 
@@ -1228,8 +1232,10 @@ obj_tree_find_attr(unsigned tree_class)
 		break;
 
 	case VOS_BTR_DKEY:
-		/* TODO: change it to VOS_BTR_AKEY while adding akey support */
-		tree_class = VOS_BTR_AKEY;
+		if (flags & SUBTR_FLAT)
+			tree_class = VOS_BTR_SINGV;
+		else
+			tree_class = VOS_BTR_AKEY;
 		break;
 	}
 
