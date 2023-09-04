@@ -53,7 +53,7 @@ rsvc_client_init(struct rsvc_client *client, const d_rank_list_t *ranks)
 			return -DER_NOMEM;
 	}
 	rsvc_client_reset_leader(client);
-	client->sc_next = 0;
+	client->sc_next = -1;
 	return 0;
 }
 
@@ -69,6 +69,19 @@ rsvc_client_fini(struct rsvc_client *client)
 	client->sc_ranks = NULL;
 }
 
+/* Return a random integer in [0, n). */
+static long int
+d_rand_n(long int n)
+{
+	long int i;
+
+	D_ASSERT(n > 0);
+	i = ((double)d_rand() / D_RAND_MAX) * n;
+	if (i >= n)
+		i = 0;
+	return i;
+}
+
 /**
  * Choose an \a ep for an RPC of \a client. Does not change \a ep->ep_group.
  *
@@ -78,26 +91,28 @@ rsvc_client_fini(struct rsvc_client *client)
 int
 rsvc_client_choose(struct rsvc_client *client, crt_endpoint_t *ep)
 {
-	int chosen = -1;
+	int chosen;
 
 	D_DEBUG(DB_MD, DF_CLI"\n", DP_CLI(client));
+
+	if (client->sc_ranks->rl_nr == 0) {
+		D_DEBUG(DB_MD, "replica list empty\n");
+		return -DER_NOTREPLICA;
+	}
+
 	if (client->sc_leader_known && client->sc_leader_aliveness > 0) {
 		chosen = client->sc_leader_index;
-	} else if (client->sc_ranks->rl_nr > 0) {
+	} else {
+		if (client->sc_next < 0)
+			client->sc_next = d_rand_n(client->sc_ranks->rl_nr);
 		chosen = client->sc_next;
 		/* The hintless search is a round robin of all replicas. */
 		client->sc_next++;
 		client->sc_next %= client->sc_ranks->rl_nr;
 	}
 
-	if (chosen == -1) {
-		D_DEBUG(DB_MD, "replica list empty\n");
-		return -DER_NOTREPLICA;
-	} else {
-		D_ASSERTF(chosen >= 0 && chosen < client->sc_ranks->rl_nr,
-			  "%d\n", chosen);
-		ep->ep_rank = client->sc_ranks->rl_ranks[chosen];
-	}
+	D_ASSERTF(chosen >= 0 && chosen < client->sc_ranks->rl_nr, "chosen=%d\n", chosen);
+	ep->ep_rank = client->sc_ranks->rl_ranks[chosen];
 	ep->ep_tag = 0;
 	return 0;
 }
@@ -127,7 +142,7 @@ rsvc_client_process_error(struct rsvc_client *client, int rc,
 				(rl->rl_nr - pos) * sizeof(*rl->rl_ranks));
 			client->sc_next = pos;
 		} else {
-			client->sc_next = 0;
+			client->sc_next = (rl->rl_nr > 0 ? 0 : -1);
 		}
 		D_ERROR("removed rank %u from replica list due to "DF_RC"\n",
 			ep->ep_rank, DP_RC(rc));
@@ -145,10 +160,12 @@ rsvc_client_process_error(struct rsvc_client *client, int rc,
 			 * Gave up this leader. Start the hintless
 			 * search.
 			 */
-			D_DEBUG(DB_MD, "give up leader rank %u\n",
-				ep->ep_rank);
-			client->sc_next = client->sc_leader_index + 1;
-			client->sc_next %= client->sc_ranks->rl_nr;
+			D_DEBUG(DB_MD, "give up leader rank %u\n", ep->ep_rank);
+			client->sc_next = d_rand_n(client->sc_ranks->rl_nr);
+			if (client->sc_next == leader_index) {
+				client->sc_next++;
+				client->sc_next %= client->sc_ranks->rl_nr;
+			}
 		}
 	}
 }
