@@ -20,6 +20,7 @@ import (
 	"github.com/daos-stack/daos/src/control/events"
 	"github.com/daos-stack/daos/src/control/lib/daos"
 	"github.com/daos-stack/daos/src/control/lib/ranklist"
+	"github.com/dustin/go-humanize"
 )
 
 // ShouldDebug returns true if the protobuf message should be logged.
@@ -96,6 +97,7 @@ func Debug(msg proto.Message) string {
 				fmt.Fprintf(&bld, "(%.02f%%) ", m.Tierratio[i])
 			}
 		}
+		fmt.Fprintf(&bld, "meta-blob-size:%s", humanize.Bytes(m.MetaBlobBytes))
 	case *mgmtpb.PoolCreateResp:
 		fmt.Fprintf(&bld, "%T svc_ldr:%d ", m, m.Leader)
 		ranks := &ranklist.RankSet{}
@@ -112,6 +114,7 @@ func Debug(msg proto.Message) string {
 		for i, b := range m.TierBytes {
 			fmt.Fprintf(&bld, "%d:%d ", i, b)
 		}
+		fmt.Fprintf(&bld, "meta-blob-size:%s", humanize.Bytes(m.MetaBlobBytes))
 	case *mgmtpb.PoolEvictReq:
 		fmt.Fprintf(&bld, "%T pool:%s", m, m.Id)
 		if len(m.Handles) > 0 {
